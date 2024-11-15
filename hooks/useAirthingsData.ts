@@ -3,37 +3,39 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as airthingsApi from '@/lib/airthings/client-api';
 
+// Map serial numbers to room names
+const SENSOR_NAMES: Record<string, string> = {
+  '2960010620': 'Stue',
+  '2960082469': 'Kontor',
+  '2960082972': 'Soveværelse'
+};
+
 export function useAirthingsData() {
   const queryClient = useQueryClient();
 
-  const accountsQuery = useQuery({
-    queryKey: ['airthings', 'accounts'],
-    queryFn: () => airthingsApi.getAccounts(),
-    staleTime: 1000 * 60 * 60 // 1 hour
-  });
-
-  const accountId = accountsQuery.data?.accounts[0]?.id;
-
-  const devicesQuery = useQuery({
-    queryKey: ['airthings', 'devices', accountId],
-    queryFn: () => airthingsApi.getDevices(accountId!),
-    enabled: !!accountId,
-    staleTime: 1000 * 60 * 5 // 5 minutes
-  });
-
-  const serialNumbers = devicesQuery.data?.devices.map(d => d.serialNumber) ?? [];
-
   const sensorDataQuery = useQuery({
-    queryKey: ['airthings', 'sensors', accountId, serialNumbers],
-    queryFn: () => airthingsApi.getSensorData(accountId!, serialNumbers),
-    enabled: !!accountId && serialNumbers.length > 0,
-    refetchInterval: 1000 * 60 * 5 // Poll every 5 minutes
+    queryKey: ['airthings', 'sensors'],
+    queryFn: () => airthingsApi.getSensorData(),
+    refetchInterval: 1000 * 60 * 1 // Poll every minute
   });
+
+  // Create device info from sensor data
+  const devices = sensorDataQuery.data?.results.map(sensor => ({
+    serialNumber: sensor.serialNumber,
+    name: SENSOR_NAMES[sensor.serialNumber] || `Sensor ${sensor.serialNumber}`,
+    type: 'VIEW_PLUS',
+    location: { name: SENSOR_NAMES[sensor.serialNumber] || `Room ${sensor.serialNumber}` },
+    lastUpdated: new Date(sensor.recorded).toLocaleString('da-DK', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  })) ?? [];
 
   return {
-    isLoading: accountsQuery.isLoading || devicesQuery.isLoading || sensorDataQuery.isLoading,
-    error: accountsQuery.error || devicesQuery.error || sensorDataQuery.error,
-    devices: devicesQuery.data?.devices ?? [],
+    isLoading: sensorDataQuery.isLoading,
+    error: sensorDataQuery.error,
+    devices,
     sensorData: sensorDataQuery.data?.results ?? [],
     refetch: () => {
       queryClient.invalidateQueries({ queryKey: ['airthings'] });

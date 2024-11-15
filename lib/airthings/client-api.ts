@@ -17,13 +17,10 @@ export async function getDevices(accountId: string) {
   return response.data;
 }
 
-export async function getSensorData(accountId: string, serialNumbers: string[]) {
-  const params = new URLSearchParams();
-  params.append('accountId', accountId);
-  serialNumbers.forEach(sn => params.append('sn', sn));
-  
-  const response = await api.get<{ results: SensorReading[] }>(
-    `/airthings/sensors?${params.toString()}`
+export async function getSensorData() {
+  // Use our new test endpoint that's working
+  const response = await api.get<{ data: { results: SensorReading[] } }>(
+    `/airthings/test-sensors`
   );
-  return response.data;
+  return response.data.data;
 }

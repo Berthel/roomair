@@ -10,7 +10,9 @@ export function getStatusColor(value: number, type: string) {
     co2: { good: 800, warning: 1000 },
     pm25: { good: 10, warning: 15 },
     humidity: { good: 40, warning: 60 },
-    temp: { low: 20, highGood: 23, warning: 25 }
+    temp: { low: 20, highGood: 23, warning: 25 },
+    voc: { good: 250, warning: 500 },
+    radon: { good: 50, warning: 100 }
   } as const;
   
   if (type === 'temp') {
@@ -19,8 +21,11 @@ export function getStatusColor(value: number, type: string) {
     if (value < thresholds.temp.warning) return '#fbbf24';
     return '#ef4444';
   }
+
+  // Handle radonShortTermAvg as radon
+  const normalizedType = type === 'radonShortTermAvg' ? 'radon' : type;
   
-  if (value < thresholds[type as keyof typeof thresholds].good) return '#22c55e';
-  if (value < thresholds[type as keyof typeof thresholds].warning) return '#fbbf24';
+  if (value < thresholds[normalizedType as keyof typeof thresholds]?.good) return '#22c55e';
+  if (value < thresholds[normalizedType as keyof typeof thresholds]?.warning) return '#fbbf24';
   return '#ef4444';
 }

@@ -46,7 +46,9 @@ export default function AirQualityDashboard() {
     co2: getSensorValue('co2'),
     pm25: { indoor: getSensorValue('pm25') },
     humidity: getSensorValue('humidity'),
-    temp: getSensorValue('temp')
+    temp: getSensorValue('temp'),
+    voc: getSensorValue('voc'),
+    radon: getSensorValue('radonShortTermAvg')
   };
 
   return (
@@ -66,10 +68,19 @@ export default function AirQualityDashboard() {
 
       <Card className="border-2">
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Indendørs luftkvalitet</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-xl font-bold">
+              {currentDevice?.name || 'Indendørs luftkvalitet'}
+            </CardTitle>
+            {currentDevice && (
+              <span className="text-sm text-gray-500">
+                Opdateret: {currentDevice.lastUpdated}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <GaugeChart
               value={currentData.co2}
               maxValue={1500}
@@ -97,6 +108,20 @@ export default function AirQualityDashboard() {
               title="Temperatur"
               unit="°C"
               type="temp"
+            />
+            <GaugeChart
+              value={currentData.voc}
+              maxValue={2000}
+              title="VOC"
+              unit="ppb"
+              type="voc"
+            />
+            <GaugeChart
+              value={currentData.radon}
+              maxValue={200}
+              title="Radon"
+              unit="Bq/m³"
+              type="radon"
             />
           </div>
         </CardContent>

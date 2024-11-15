@@ -53,7 +53,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const USE_MOCK_DATA = process.env.NODE_ENV === 'development';
 
 const api = axios.create({
-  baseURL: 'https://device.iqair.com/v2'
+  baseURL: process.env.IQAIR_BASE_URL
 });
 
 export async function getOutdoorData(): Promise<IQAirCurrentData> {
@@ -81,8 +81,12 @@ export async function getOutdoorData(): Promise<IQAirCurrentData> {
       return cache.data;
     }
 
+    if (!process.env.IQAIR_DEVICE_ID) {
+      throw new Error('IQAIR_DEVICE_ID is not configured');
+    }
+
     console.log('Fetching fresh IQAir data');
-    const response = await api.get<IQAirResponse>('/621f4d453e8c9b3b71900377');
+    const response = await api.get<IQAirResponse>(`/${process.env.IQAIR_DEVICE_ID}`);
     
     // Update cache
     cache = {

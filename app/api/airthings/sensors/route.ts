@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const data = await airthingsApi.getSensorData(accountId, serialNumbers);
+    const data = await airthingsApi.getSensors(accountId, serialNumbers);
     return NextResponse.json(data);
   } catch (error) {
     console.error('Sensors API route failed:', error);

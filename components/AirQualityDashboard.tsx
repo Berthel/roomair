@@ -3,12 +3,51 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
 import GaugeChart from '@/components/GaugeChart';
-import { roomData, outdoorData } from '@/lib/mock-data';
+import { useAirthingsData } from '@/hooks/useAirthingsData';
+import { outdoorData } from '@/lib/mock-data';
 
 export default function AirQualityDashboard() {
-  const [selectedRoom, setSelectedRoom] = useState('stue');
-  const currentData = roomData[selectedRoom];
+  const { isLoading, error, sensorData, devices } = useAirthingsData();
+  const [selectedRoom, setSelectedRoom] = useState('');
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          {error instanceof Error ? error.message : 'Failed to load air quality data'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const currentDevice = devices.find(device => device.serialNumber === selectedRoom);
+  const currentSensorData = sensorData.find(data => data.serialNumber === selectedRoom);
+
+  if (!selectedRoom && devices.length > 0) {
+    setSelectedRoom(devices[0].serialNumber);
+  }
+
+  const getSensorValue = (type: string) => {
+    return currentSensorData?.sensors.find(s => s.sensorType.toLowerCase() === type)?.value ?? 0;
+  };
+
+  const currentData = {
+    co2: getSensorValue('co2'),
+    pm25: { indoor: getSensorValue('pm25') },
+    humidity: getSensorValue('humidity'),
+    temp: getSensorValue('temp')
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -17,9 +56,11 @@ export default function AirQualityDashboard() {
           <SelectValue placeholder="Vælg rum" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="stue" className="font-bold">Stue</SelectItem>
-          <SelectItem value="soveværelse" className="font-bold">Soveværelse</SelectItem>
-          <SelectItem value="musikrum" className="font-bold">Musikrum</SelectItem>
+          {devices.map(device => (
+            <SelectItem key={device.serialNumber} value={device.serialNumber} className="font-bold">
+              {device.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AirthingsDevice, SensorReading } from './server-api';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL
+  baseURL: '/api'
 });
 
 export async function getAccounts() {

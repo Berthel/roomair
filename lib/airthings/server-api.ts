@@ -1,48 +1,99 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AIRTHINGS_CONFIG } from './config';
 
-export interface AirthingsDevice {
-  serialNumber: string;
-  name: string;
-  home?: string;
+const AIRTHINGS_CONFIG = {
+  baseUrl: process.env.NEXT_PUBLIC_AIRTHINGS_BASE_URL,
+  authUrl: process.env.NEXT_PUBLIC_AIRTHINGS_AUTH_URL,
+  clientId: process.env.NEXT_PUBLIC_AIRTHINGS_CLIENT_ID,
+  clientSecret: process.env.NEXT_PUBLIC_AIRTHINGS_CLIENT_SECRET,
+  scope: process.env.NEXT_PUBLIC_AIRTHINGS_SCOPE
+};
+
+interface SensorReading {
+  sensorType: string;
+  value: number;
+  unit: string;
 }
 
-export interface SensorReading {
+interface SensorDevice {
   serialNumber: string;
+  sensors: SensorReading[];
   recorded: string;
-  sensors: Array<{
-    sensorType: string;
-    value: number;
-    unit: string;
-  }>;
-  batteryPercentage?: number;
+  batteryPercentage: number;
 }
 
-class AirthingsAPI {
+interface SensorResponse {
+  results: SensorDevice[];
+  hasNext: boolean;
+  totalPages: number;
+}
+
+export class AirthingsAPI {
   private api: AxiosInstance;
   private accessToken: string | null = null;
 
   constructor() {
-    if (!AIRTHINGS_CONFIG.baseUrl || !AIRTHINGS_CONFIG.authUrl || 
-        !AIRTHINGS_CONFIG.clientId || !AIRTHINGS_CONFIG.clientSecret) {
-      throw new Error('Missing required Airthings configuration');
-    }
-
-    this.api = axios.create({
-      baseURL: AIRTHINGS_CONFIG.baseUrl
+    console.log('Initializing AirthingsAPI with config:', {
+      baseUrl: AIRTHINGS_CONFIG.baseUrl,
+      authUrl: AIRTHINGS_CONFIG.authUrl,
+      hasClientId: !!AIRTHINGS_CONFIG.clientId,
+      hasClientSecret: !!AIRTHINGS_CONFIG.clientSecret,
+      scope: AIRTHINGS_CONFIG.scope
     });
 
-    // Add response interceptor for better error handling
-    this.api.interceptors.response.use(
-      response => response,
-      async (error: AxiosError) => {
-        console.error('API Error:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          config: {
-            url: error.config?.url,
-            method: error.config?.method
+    // Validate configuration
+    if (!AIRTHINGS_CONFIG.baseUrl) throw new Error('Missing AIRTHINGS_BASE_URL');
+    if (!AIRTHINGS_CONFIG.authUrl) throw new Error('Missing AIRTHINGS_AUTH_URL');
+    if (!AIRTHINGS_CONFIG.clientId) throw new Error('Missing AIRTHINGS_CLIENT_ID');
+    if (!AIRTHINGS_CONFIG.clientSecret) throw new Error('Missing AIRTHINGS_CLIENT_SECRET');
+    if (!AIRTHINGS_CONFIG.scope) throw new Error('Missing AIRTHINGS_SCOPE');
+
+    this.api = axios.create({
+      baseURL: AIRTHINGS_CONFIG.baseUrl,
+      timeout: 10000,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Add request interceptor for logging
+    this.api.interceptors.request.use(
+      (config) => {
+        const sanitizedConfig = {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          headers: {
+            ...config.headers,
+            Authorization: config.headers.Authorization ? '[REDACTED]' : undefined
           }
+        };
+        console.log('Outgoing request:', sanitizedConfig);
+        return config;
+      },
+      (error) => {
+        console.error('Request interceptor error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for logging
+    this.api.interceptors.response.use(
+      (response) => {
+        console.log('Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.config.url,
+          data: response.data
+        });
+        return response;
+      },
+      (error: AxiosError) => {
+        console.error('Response error:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url
         });
         return Promise.reject(error);
       }
@@ -50,66 +101,139 @@ class AirthingsAPI {
   }
 
   private async ensureToken() {
+    console.log('=== Starting token acquisition ===');
     try {
       if (!this.accessToken) {
-        console.log('Requesting new access token...');
-        const response = await axios.post(AIRTHINGS_CONFIG.authUrl, {
-          grant_type: 'client_credentials',
-          client_id: AIRTHINGS_CONFIG.clientId,
-          client_secret: AIRTHINGS_CONFIG.clientSecret,
-          scope: AIRTHINGS_CONFIG.scope
+        console.log('No existing token found, getting new token...');
+
+        // Create Basic Auth token
+        const basicAuth = Buffer.from(
+          `${AIRTHINGS_CONFIG.clientId}:${AIRTHINGS_CONFIG.clientSecret}`
+        ).toString('base64');
+
+        console.log('Making token request...');
+        const tokenResponse = await axios({
+          method: 'post',
+          url: AIRTHINGS_CONFIG.authUrl,
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          data: new URLSearchParams({
+            grant_type: 'client_credentials',
+            scope: AIRTHINGS_CONFIG.scope!
+          }).toString()
         });
 
-        if (!response.data.access_token) {
-          throw new Error('No access token received from Airthings');
+        console.log('Token response received:', {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          hasAccessToken: !!tokenResponse.data.access_token,
+          tokenType: tokenResponse.data.token_type,
+          expiresIn: tokenResponse.data.expires_in
+        });
+
+        if (!tokenResponse.data.access_token) {
+          console.error('Token response missing access_token:', tokenResponse.data);
+          throw new Error('No access token received in response');
         }
 
-        this.accessToken = response.data.access_token;
-        this.api.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
-        console.log('Successfully obtained new access token');
+        this.accessToken = tokenResponse.data.access_token;
+        
+        // Set up API headers
+        this.api.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+        
+        console.log('Access token and headers successfully set');
       }
-    } catch (error) {
-      console.error('Token acquisition failed:', error);
-      throw new Error('Failed to obtain access token');
+    } catch (error: any) {
+      console.error('=== Token acquisition failed ===');
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      if (error.response) {
+        console.error('API Response Error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers,
+          config: {
+            url: error.response.config?.url,
+            method: error.response.config?.method,
+            headers: error.response.config?.headers,
+            data: error.response.config?.data
+          }
+        });
+      }
+      
+      throw new Error(`Authentication failed: ${error.message}`);
     }
   }
 
   async getAccounts() {
+    await this.ensureToken();
     try {
-      await this.ensureToken();
+      console.log('Fetching accounts...');
       const response = await this.api.get('/v1/accounts');
-      return response.data;
+      console.log('Accounts response raw data:', JSON.stringify(response.data, null, 2));
+      const accounts = Array.isArray(response.data) ? response.data : response.data.accounts || [response.data];
+      console.log('Processed accounts:', JSON.stringify(accounts, null, 2));
+      return accounts;
     } catch (error) {
-      console.error('getAccounts failed:', error);
+      console.error('Failed to fetch accounts:', error);
       throw error;
     }
   }
 
   async getDevices(accountId: string) {
+    await this.ensureToken();
     try {
-      await this.ensureToken();
-      const response = await this.api.get<{ devices: AirthingsDevice[] }>(
-        `/v1/accounts/${accountId}/devices`
-      );
+      console.log(`Fetching devices for account ${accountId}...`);
+      const response = await this.api.get(`/v1/accounts/${accountId}/devices`);
+      console.log('Devices response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error) {
-      console.error('getDevices failed:', error);
+      console.error('Failed to fetch devices:', error);
       throw error;
     }
   }
 
-  async getSensorData(accountId: string, serialNumbers: string[]) {
+  async getSensors(accountId: string, serialNumbers?: string[], page: number = 1) {
+    await this.ensureToken();
     try {
-      await this.ensureToken();
-      const params = new URLSearchParams();
-      serialNumbers.forEach(sn => params.append('sn', sn));
+      console.log(`Fetching sensors for account ${accountId} (page ${page})...`);
+      console.log('Parameters:', { accountId, serialNumbers, page });
       
-      const response = await this.api.get<{ results: SensorReading[] }>(
-        `/v1/accounts/${accountId}/sensors?${params.toString()}`
-      );
+      const response = await this.api.get<SensorResponse>(`/v1/accounts/${accountId}/sensors`, {
+        params: {
+          ...(serialNumbers ? { serialNumbers: serialNumbers.join(',') } : {}),
+          page
+        }
+      });
+      
+      console.log('Sensors response:', {
+        status: response.status,
+        hasData: !!response.data,
+        resultsCount: response.data.results.length,
+        hasNext: response.data.hasNext,
+        totalPages: response.data.totalPages,
+        rawData: JSON.stringify(response.data, null, 2)
+      });
+      
       return response.data;
-    } catch (error) {
-      console.error('getSensorData failed:', error);
+    } catch (error: any) {
+      console.error('Failed to fetch sensors:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        accountId,
+        serialNumbers,
+        page
+      });
       throw error;
     }
   }

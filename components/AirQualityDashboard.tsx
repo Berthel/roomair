@@ -2,15 +2,14 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import GaugeChart from '@/components/GaugeChart';
 import { useAirthingsData } from '@/hooks/useAirthingsData';
-import { outdoorData } from '@/lib/mock-data';
 
 export default function AirQualityDashboard() {
-  const { isLoading, error, sensorData, devices } = useAirthingsData();
+  const { isLoading, error, sensorData, devices, outdoorData, outdoorLastUpdated } = useAirthingsData();
   const [selectedRoom, setSelectedRoom] = useState('');
 
   if (isLoading) {
@@ -44,7 +43,7 @@ export default function AirQualityDashboard() {
 
   const currentData = {
     co2: getSensorValue('co2'),
-    pm25: { indoor: getSensorValue('pm25') },
+    pm25: getSensorValue('pm25'),
     humidity: getSensorValue('humidity'),
     temp: getSensorValue('temp'),
     voc: getSensorValue('voc'),
@@ -53,18 +52,18 @@ export default function AirQualityDashboard() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-        <SelectTrigger className="w-full font-bold">
-          <SelectValue placeholder="Vælg rum" />
-        </SelectTrigger>
-        <SelectContent>
-          {devices.map(device => (
-            <SelectItem key={device.serialNumber} value={device.serialNumber} className="font-bold">
-              {device.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="grid grid-cols-3 gap-2">
+        {devices.map(device => (
+          <Button
+            key={device.serialNumber}
+            variant={selectedRoom === device.serialNumber ? "default" : "outline"}
+            className="w-full font-bold"
+            onClick={() => setSelectedRoom(device.serialNumber)}
+          >
+            {device.name}
+          </Button>
+        ))}
+      </div>
 
       <Card className="border-2">
         <CardHeader>
@@ -89,7 +88,7 @@ export default function AirQualityDashboard() {
               type="co2"
             />
             <GaugeChart
-              value={currentData.pm25.indoor}
+              value={currentData.pm25}
               maxValue={25}
               title="PM2.5"
               unit="µg/m³"
@@ -129,26 +128,54 @@ export default function AirQualityDashboard() {
 
       <Card className="border-2">
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Udendørs forhold</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-xl font-bold">Udendørs luftkvalitet</CardTitle>
+            {outdoorLastUpdated && (
+              <span className="text-sm text-gray-500">
+                Opdateret: {outdoorLastUpdated}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-            <GaugeChart
-              value={outdoorData.temp}
-              maxValue={30}
-              title="Temperatur"
-              unit="°C"
-              type="temp"
-              isOutdoor
-            />
-            <GaugeChart
-              value={outdoorData.pm25}
-              maxValue={25}
-              title="PM2.5"
-              unit="µg/m³"
-              type="pm25"
-              isOutdoor
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">Temperatur</div>
+                <div className="text-2xl font-bold">{outdoorData.temperature.toFixed(1)}°C</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">Luftfugtighed</div>
+                <div className="text-2xl font-bold">{Math.round(outdoorData.humidity)}%</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">Lufttryk</div>
+                <div className="text-2xl font-bold">{Math.round(outdoorData.pressure)} hPa</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">PM2.5</div>
+                <div className="text-2xl font-bold">{Math.round(outdoorData.pm25)} µg/m³</div>
+                <div className="text-sm text-gray-500">AQI: {Math.round(outdoorData.aqius)}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">PM1</div>
+                <div className="text-2xl font-bold">{Math.round(outdoorData.pm1)} µg/m³</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium text-gray-500">PM10</div>
+                <div className="text-2xl font-bold">{Math.round(outdoorData.pm10)} µg/m³</div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

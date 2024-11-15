@@ -81,13 +81,6 @@ export default function AirQualityDashboard() {
         <CardContent>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <GaugeChart
-              value={currentData.co2}
-              maxValue={1500}
-              title="CO₂"
-              unit="ppm"
-              type="co2"
-            />
-            <GaugeChart
               value={currentData.pm25}
               maxValue={25}
               title="PM2.5"
@@ -95,11 +88,11 @@ export default function AirQualityDashboard() {
               type="pm25"
             />
             <GaugeChart
-              value={currentData.humidity}
-              maxValue={100}
-              title="Luftfugtighed"
-              unit="%"
-              type="humidity"
+              value={currentData.co2}
+              maxValue={1500}
+              title="CO₂"
+              unit="ppm"
+              type="co2"
             />
             <GaugeChart
               value={currentData.temp}
@@ -107,6 +100,13 @@ export default function AirQualityDashboard() {
               title="Temperatur"
               unit="°C"
               type="temp"
+            />
+            <GaugeChart
+              value={currentData.humidity}
+              maxValue={100}
+              title="Luftfugtighed"
+              unit="%"
+              type="humidity"
             />
             <GaugeChart
               value={currentData.voc}
@@ -126,6 +126,7 @@ export default function AirQualityDashboard() {
         </CardContent>
       </Card>
 
+      {/* Temporarily disabled outdoor air quality
       <Card className="border-2">
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -179,6 +180,7 @@ export default function AirQualityDashboard() {
           </div>
         </CardContent>
       </Card>
+      */}
     </div>
   );
 }

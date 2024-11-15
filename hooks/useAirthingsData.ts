@@ -20,13 +20,14 @@ export function useAirthingsData() {
     refetchInterval: 1000 * 60 * 1 // Poll every minute
   });
 
-  const outdoorDataQuery = useQuery({
+  // Temporarily disabled IQAir integration
+  /*const outdoorDataQuery = useQuery({
     queryKey: ['iqair'],
     queryFn: () => iqairApi.getOutdoorData(),
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
+  });*/
 
   // Create device info from sensor data
   const devices = sensorDataQuery.data?.results.map(sensor => ({
@@ -42,34 +43,17 @@ export function useAirthingsData() {
   })) ?? [];
 
   // Map outdoor data to our format
-  console.log('Outdoor data response:', outdoorDataQuery.data);
-  const outdoorSensorData = outdoorDataQuery.data ? {
-    pm25: outdoorDataQuery.data?.current?.pm25?.conc ?? 0,
-    temperature: outdoorDataQuery.data?.current?.tp ?? 0,
-    humidity: outdoorDataQuery.data?.current?.hm ?? 0,
-    pressure: outdoorDataQuery.data?.current?.pr ?? 0,
-    pm1: outdoorDataQuery.data?.current?.pm1?.conc ?? 0,
-    pm10: outdoorDataQuery.data?.current?.pm10?.conc ?? 0,
-    aqius: outdoorDataQuery.data?.current?.aqius ?? 0,
-    aqicn: outdoorDataQuery.data?.current?.aqicn ?? 0
-  } : {};
+  const outdoorSensorData = {};
 
   return {
-    isLoading: sensorDataQuery.isLoading || outdoorDataQuery.isLoading,
-    error: sensorDataQuery.error || outdoorDataQuery.error,
+    isLoading: sensorDataQuery.isLoading,
+    error: sensorDataQuery.error,
     devices,
     sensorData: sensorDataQuery.data?.results ?? [],
     outdoorData: outdoorSensorData,
-    outdoorLastUpdated: outdoorDataQuery.data?.current?.ts 
-      ? new Date(outdoorDataQuery.data.current.ts).toLocaleString('da-DK', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        }) 
-      : null,
+    outdoorLastUpdated: null,
     refetch: () => {
       queryClient.invalidateQueries({ queryKey: ['airthings'] });
-      queryClient.invalidateQueries({ queryKey: ['iqair'] });
     }
   };
 }

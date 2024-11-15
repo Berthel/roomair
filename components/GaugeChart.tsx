@@ -8,7 +8,8 @@ interface GaugeChartProps {
   maxValue: number;
   title: string;
   unit: string;
-  type: 'co2' | 'pm25' | 'humidity' | 'temp';
+  type: string;
+  comparison?: number;
   isOutdoor?: boolean;
 }
 
@@ -18,9 +19,11 @@ export default function GaugeChart({
   title, 
   unit, 
   type,
+  comparison,
   isOutdoor = false 
 }: GaugeChartProps) {
   const rotation = (value / maxValue) * 180;
+  const percentage = (value / maxValue) * 100;
   const color = isOutdoor ? '#3b82f6' : getStatusColor(value, type);
   
   return (
@@ -57,6 +60,11 @@ export default function GaugeChart({
             className="fill-gray-900 dark:fill-gray-100"
           >
             {value} {unit}
+            {comparison !== undefined && (
+              <tspan className="text-sm ml-2 text-gray-500">
+                (Ude: {comparison} {unit})
+              </tspan>
+            )}
           </text>
         </svg>
       </div>

@@ -5,6 +5,8 @@
 [build.environment]
   NODE_VERSION = "18.17.0"
   NPM_VERSION = "9.6.7"
+  # Configure secrets scanning
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_AIRTHINGS_BASE_URL,NEXT_PUBLIC_AIRTHINGS_AUTH_URL,NEXT_PUBLIC_AIRTHINGS_SCOPE,IQAIR_BASE_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
